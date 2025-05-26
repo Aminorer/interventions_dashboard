@@ -3,3 +3,4 @@ pandas
 plotly
 pgeocode
 openpyxl
+xlrd==2.0.1
