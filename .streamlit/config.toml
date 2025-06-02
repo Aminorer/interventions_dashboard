@@ -1,0 +1,8 @@
+[theme]
+base                     = "light"
+primaryColor             = "#005EB8"   # bleu Enedis
+backgroundColor          = "#FFFFFF"   # fond principal
+secondaryBackgroundColor = "#C9E486"   # vert pâle = 50 % de #93C90E
+textColor                = "#262730"
+font                     = "sans serif"
+
