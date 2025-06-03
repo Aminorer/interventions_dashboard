@@ -114,6 +114,8 @@ if not ok:
 msk = df["Année"].isin(y) & df["Mois"].isin(m) & df["Jour"].isin(d)
 if set(ag_sel) != set(agents):
     msk &= df["Agent"].isin(ag_sel)
+if set(agc_sel) != set(agences):
+    msk &= df["Agence"].isin(agc_sel)
 if prestations:
     msk &= df["Prestation"].isin(pr)
 if uos:
@@ -159,6 +161,19 @@ else:
     c3.metric("Durée max", f"{réalisé_max:.1f} min")
     c4.metric("Durée min", f"{réalisé_min:.1f} min")
 
+va = flt["Année"].value_counts().sort_index().reset_index()
+va.columns = ["Année", "n"]
+f = px.bar(
+    va,
+    x="Année",
+    y="n",
+    color="Année",
+    color_discrete_sequence=enedis_cols,
+    title="Volume annuel",
+)
+f.update_traces(text=va["n"], textposition="outside", hovertemplate="Année %{x}<br>%{y} interventions")
+st.plotly_chart(f, use_container_width=True)
+
 
 vm = flt.groupby(["Année", "Mois_nom"]).size().reset_index(name="n")
 st.plotly_chart(px.bar(vm, x="Mois_nom", y="n", color="Année", color_discrete_sequence=enedis_cols, barmode="group", title="Volume mensuel"), use_container_width=True)
@@ -187,6 +202,74 @@ if "Code et libelle Uo" in flt.columns:
     f.update_traces(hovertemplate="%{x}<br>%{text}%")
     st.plotly_chart(f, use_container_width=True)
 
+
+
+if "PRM" in flt.columns:
+    flt["PRM_clean"] = flt["PRM"].dropna().apply(lambda x: str(x).split('.')[0])
+    top_prm = flt["PRM_clean"].value_counts().nlargest(10).reset_index()
+    top_prm.columns = ["PRM", "n"]
+    top_prm["Rang"] = [f"{i+1}ᵉ" for i in range(len(top_prm))]
+
+    f = px.bar(
+        top_prm,
+        x="Rang",
+        y="n",
+        color="PRM",
+        color_discrete_sequence=enedis_cols,
+        text="n",
+        title="Top 10 PRM (classés)"
+    )
+    f.update_traces(textposition="outside", hovertemplate="Rang %{x}<br>%{y} interventions<br>PRM %{customdata}")
+    f.update_layout(xaxis_title="Rang", yaxis_title="Nombre d’interventions")
+    st.plotly_chart(f, use_container_width=True)
+
+
+cols_order = [
+    "PRM", "Prestation", "Perimètre géographique", "Libelle du BI", "Commune",
+    "Code et libelle Uo", "Origine", "Date de programmation", "Date de réalisation",
+    "Statut de l'intervention", "Etat de réalisation", "Motif de non réalisation",
+    "Temps théorique", "Temps réalisé", "Agent", "CDT", "Commentaire du technicien"
+]
+
+# Affichage du tableau des lignes concernées
+if "PRM_clean" in flt.columns:
+    top_10_prm = top_prm["PRM"].tolist()
+    top_prm_df = flt[flt["PRM_clean"].isin(top_10_prm)]
+
+    st.subheader("📋 Détails des interventions des 10 PRM les plus sollicités")
+    st.dataframe(top_prm_df[[c for c in cols_order if c in top_prm_df.columns]])
+
+
+
+if "Origine" in flt.columns:
+    t = flt["Origine"].value_counts().reset_index()
+    t.columns = ["Origine", "n"]
+    t["pct"] = pct(t["n"])
+    f = px.bar(t, x="Origine", y="n", text="pct", color="Origine", color_discrete_sequence=enedis_cols, title="Répartition par Origine")
+    f.update_traces(hovertemplate="%{x}<br>%{text}%")
+    st.plotly_chart(f, use_container_width=True)
+
+if "Date de programmation" in flt.columns:
+    try:
+        flt["Date de programmation"] = pd.to_datetime(flt["Date de programmation"], errors='coerce')
+        t = flt["Date de programmation"].dt.date.value_counts().sort_index().reset_index()
+        t.columns = ["Date", "n"]
+        f = px.bar(t, x="Date", y="n", color_discrete_sequence=enedis_cols, title="Volume des programmations par jour")
+        st.plotly_chart(f, use_container_width=True)
+    except:
+        pass
+
+if "Motif de non réalisation" in flt.columns:
+    t = flt["Motif de non réalisation"].dropna().value_counts().nlargest(10).reset_index()
+    t.columns = ["Motif", "n"]
+    t["pct"] = pct(t["n"])
+    f = px.bar(t, x="Motif", y="n", text="pct", color="Motif", color_discrete_sequence=enedis_cols, title="Top 10 Motifs de non réalisation")
+    f.update_traces(hovertemplate="%{x}<br>%{text}%")
+    st.plotly_chart(f, use_container_width=True)
+
+
+
+
 if {"Temps théorique", "Temps réalisé", "Prestation"}.issubset(flt.columns):
     t = flt.groupby("Prestation")[["Temps théorique", "Temps réalisé"]].mean().reset_index()
     f = px.bar(t, x="Prestation", y=["Temps théorique", "Temps réalisé"], color_discrete_sequence=enedis_cols[:2], barmode="group", title="Temps théorique vs réalisé par prestation")
@@ -194,10 +277,19 @@ if {"Temps théorique", "Temps réalisé", "Prestation"}.issubset(flt.columns):
 
 if "Arr" in flt.columns and geo.exists():
     arr = flt["Arr"].value_counts().rename_axis("Arr").reset_index(name="n")
-    arr["Arr"] = arr["Arr"].astype(str).str.zfill(2)
+    arr["Arr"] = arr["Arr"].astype(int)
     arr["pct"] = pct(arr["n"])
     gj = json.loads(geo.read_text())
-    f = px.choropleth(arr, geojson=gj, locations="Arr", color="pct", color_continuous_scale=[[0, "#E6F0FF"], [1, "#2C75FF"]], featureidkey="properties.c_ar", hover_data={"pct":":.1f"}, center={"lat": 48.8566, "lon": 2.3522}, title="Interventions par arrondissement")
+    f = px.choropleth(
+    arr,
+    geojson=gj,
+    locations="Arr",
+    color="pct",
+    color_continuous_scale=[[0, "#E6F0FF"], [1, "#2C75FF"]],
+    featureidkey="properties.c_ar",  # ← gardé une seule fois
+    hover_data={"pct":":.1f"},
+    center={"lat": 48.8566, "lon": 2.3522},
+    title="Interventions par arrondissement")
     f.update_geos(fitbounds="locations", visible=False)
     f.update_traces(hovertemplate="Arr %{location}<br>%{customdata[0]}%")
     st.plotly_chart(f, use_container_width=True)
