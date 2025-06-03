@@ -132,7 +132,7 @@ geo = Path("arrondissements.geojson")
 
 if "Arr" in flt.columns and geo.exists():
     arr = flt["Arr"].value_counts().rename_axis("Arr").reset_index(name="n")
-    arr["Arr"] = arr["Arr"].astype(str).str.zfill(2)  
+    arr["Arr"] = arr["Arr"].astype(int) 
     arr["pct"] = arr["n"] / arr["n"].sum() * 100
 
     gj = json.loads(geo.read_text(encoding="utf-8"))
