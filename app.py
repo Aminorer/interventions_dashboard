@@ -6,10 +6,31 @@ st.set_page_config(page_title="Interventions Enedis", layout="wide", initial_sid
 root = Path(__file__).parent
 logo = root / "enedis_logo.png"
 geo = root / "arrondissements.geojson"
+
+
+def _download(url: str, dest: Path, timeout: int = 15) -> None:
+    """Download a file to dest, handling network errors gracefully."""
+    try:
+        r = requests.get(url, timeout=timeout)
+        r.raise_for_status()
+    except Exception as e:
+        st.warning(f"Impossible de télécharger {url} : {e}")
+        return
+    dest.write_bytes(r.content)
+
+
 if not logo.exists():
-    logo.write_bytes(requests.get("https://upload.wikimedia.org/wikipedia/fr/7/7d/Enedis_logo.svg", timeout=15).content)
+    _download(
+        "https://upload.wikimedia.org/wikipedia/fr/7/7d/Enedis_logo.svg",
+        logo,
+        timeout=15,
+    )
 if not geo.exists():
-    geo.write_bytes(requests.get("https://opendata.paris.fr/explore/dataset/arrondissements/download/?format=geojson", timeout=30).content)
+    _download(
+        "https://opendata.paris.fr/explore/dataset/arrondissements/download/?format=geojson",
+        geo,
+        timeout=30,
+    )
 
 enedis_cols = ["#2C75FF", "#75C700", "#4A9BFF", "#A0D87C", "#0072F0", "#47B361", "#6EABFF", "#9EE08E"]
 
