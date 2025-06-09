@@ -70,6 +70,34 @@ if "Temps réalisé" in flt.columns:
     c3.metric("Durée max", f"{pos.max():.1f}")
     c4.metric("Durée min", f"{pos.min():.1f}")
 
+if "Année" in flt.columns:
+    va = flt["Année"].value_counts().sort_index().reset_index()
+    va.columns = ["Année", "Interventions"]
+    fig = px.bar(
+        va,
+        x="Année",
+        y="Interventions",
+        color="Année",
+        color_discrete_sequence=ENEDIS_COLORS,
+        title="Volume annuel",
+    )
+    fig.update_traces(text=va["Interventions"], textposition="outside",
+                      hovertemplate="Année %{x}<br>%{y} interventions")
+    st.plotly_chart(fig, use_container_width=True)
+
+if {"Année", "Mois_nom"}.issubset(flt.columns):
+    vm = flt.groupby(["Année", "Mois_nom"]).size().reset_index(name="Interventions")
+    fig = px.bar(
+        vm,
+        x="Mois_nom",
+        y="Interventions",
+        color="Année",
+        color_discrete_sequence=ENEDIS_COLORS,
+        barmode="group",
+        title="Volume mensuel",
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
 if "Prestation" in flt.columns:
     t = flt["Prestation"].value_counts().rename_axis("Prestation").reset_index(name="Interventions")
     t["%"] = (t["Interventions"] / t["Interventions"].sum() * 100).round(1)
@@ -101,6 +129,21 @@ if "Statut de l'intervention" in flt.columns:
     fig.update_layout(xaxis_tickangle=-45)
     st.plotly_chart(fig, use_container_width=True)
 
+if "Etat de réalisation" in flt.columns:
+    et_counts = flt["Etat de réalisation"].value_counts().rename_axis("Etat").reset_index(name="Interventions")
+    et_counts["%"] = (et_counts["Interventions"] / et_counts["Interventions"].sum() * 100).round(1)
+    fig = px.bar(
+        et_counts,
+        x="Etat",
+        y="Interventions",
+        title="Répartition des états de réalisation",
+        color_discrete_sequence=ENEDIS_COLORS,
+        hover_data={"%": True, "Interventions": True},
+    )
+    fig.update_traces(hovertemplate="%{x}<br>Interventions : %{y}<br>% : %{customdata[0]}%")
+    fig.update_layout(xaxis_tickangle=-45)
+    st.plotly_chart(fig, use_container_width=True)
+
 
 if "Motif de non réalisation" in flt.columns:
     top_motifs = (
@@ -123,6 +166,96 @@ if "Motif de non réalisation" in flt.columns:
     )
     fig.update_traces(hovertemplate="%{x}<br>Interventions : %{y}<br>% : %{customdata[0]}%")
     fig.update_layout(xaxis_tickangle=-45)
+    st.plotly_chart(fig, use_container_width=True)
+
+if "Libelle du BI" in flt.columns:
+    t = flt["Libelle du BI"].value_counts().nlargest(10).reset_index()
+    t.columns = ["Libellé", "Interventions"]
+    t["%"] = (t["Interventions"] / t["Interventions"].sum() * 100).round(1)
+    fig = px.bar(
+        t,
+        x="Libellé",
+        y="Interventions",
+        text="%",
+        color="Libellé",
+        color_discrete_sequence=ENEDIS_COLORS,
+        title="Top 10 Libellé BI",
+    )
+    fig.update_traces(hovertemplate="%{x}<br>%{text}%")
+    st.plotly_chart(fig, use_container_width=True)
+
+if "PRM" in flt.columns:
+    flt["PRM_clean"] = flt["PRM"].dropna().apply(lambda x: str(x).split('.')[0])
+    top_prm = flt["PRM_clean"].value_counts().nlargest(10).reset_index()
+    top_prm.columns = ["PRM", "Interventions"]
+    top_prm["Rang"] = [f"{i+1}ᵉ" for i in range(len(top_prm))]
+    fig = px.bar(
+        top_prm,
+        x="Rang",
+        y="Interventions",
+        color="PRM",
+        color_discrete_sequence=ENEDIS_COLORS,
+        text="Interventions",
+        title="Top 10 PRM (classés)",
+    )
+    fig.update_traces(textposition="outside",
+                      hovertemplate="Rang %{x}<br>%{y} interventions<br>PRM %{customdata}")
+    fig.update_layout(xaxis_title="Rang", yaxis_title="Nombre d’interventions")
+    st.plotly_chart(fig, use_container_width=True)
+
+if "Origine" in flt.columns:
+    t = flt["Origine"].value_counts().reset_index()
+    t.columns = ["Origine", "Interventions"]
+    t["%"] = (t["Interventions"] / t["Interventions"].sum() * 100).round(1)
+    fig = px.bar(
+        t,
+        x="Origine",
+        y="Interventions",
+        text="%",
+        color="Origine",
+        color_discrete_sequence=ENEDIS_COLORS,
+        title="Répartition par Origine",
+    )
+    fig.update_traces(hovertemplate="%{x}<br>%{text}%")
+    st.plotly_chart(fig, use_container_width=True)
+
+if "Date de programmation" in flt.columns:
+    try:
+        flt["Date de programmation"] = pd.to_datetime(flt["Date de programmation"], errors='coerce')
+        t = flt["Date de programmation"].dt.date.value_counts().sort_index().reset_index()
+        t.columns = ["Date", "Interventions"]
+        fig = px.bar(
+            t,
+            x="Date",
+            y="Interventions",
+            color_discrete_sequence=ENEDIS_COLORS,
+            title="Volume des programmations par jour",
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    except Exception:
+        pass
+
+if {"Temps théorique", "Temps réalisé", "Prestation"}.issubset(flt.columns):
+    t = flt.groupby("Prestation")[["Temps théorique", "Temps réalisé"]].mean().reset_index()
+    fig = px.bar(
+        t,
+        x="Prestation",
+        y=["Temps théorique", "Temps réalisé"],
+        color_discrete_sequence=ENEDIS_COLORS[:2],
+        barmode="group",
+        title="Temps théorique vs réalisé par prestation",
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+if "CDT" in flt.columns:
+    cdt_counts = flt["CDT"].value_counts().rename_axis("Agent CDT").reset_index(name="Interventions")
+    fig = px.bar(
+        cdt_counts,
+        x="Agent CDT",
+        y="Interventions",
+        title="Interventions par agent CDT",
+        color_discrete_sequence=ENEDIS_COLORS,
+    )
     st.plotly_chart(fig, use_container_width=True)
 
 
