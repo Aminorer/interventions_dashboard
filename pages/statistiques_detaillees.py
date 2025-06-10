@@ -215,13 +215,19 @@ if {"Année", "Mois_nom"}.issubset(flt.columns):
         min_df = min_df.rename(columns={"Interventions": "min", "Agent": "agent_min"})
         merged = merged.merge(min_df, on=["Année", "Mois", "Mois_nom"], how="left")
 
-        mean_df = grp.groupby(["Année", "Mois", "Mois_nom"])["Interventions"].mean().reset_index(name="mean")
+        mean_df = (
+            grp.groupby(["Année", "Mois", "Mois_nom"])["Interventions"]
+            .mean()
+            .reset_index(name="mean")
+        )
         merged = merged.merge(mean_df, on=["Année", "Mois", "Mois_nom"], how="left")
+        # Use French label for mean values
+        merged = merged.rename(columns={"mean": "moyenne"})
 
         merged["Date"] = pd.to_datetime(dict(year=merged["Année"], month=merged["Mois"], day=1))
 
         # Ensure all metric columns exist to avoid KeyError when they are missing
-        for col in ["tech", "max", "min", "mean", "agent_max", "agent_min"]:
+        for col in ["tech", "max", "min", "moyenne", "agent_max", "agent_min"]:
             if col not in merged.columns:
                 merged[col] = pd.NA
 
