@@ -1,6 +1,5 @@
 import streamlit as st, pandas as pd, numpy as np, plotly.express as px
-import json
-from pathlib import Path
+from utils import get_geojson
 
 ENEDIS_COLORS = ["#2C75FF", "#75C700", "#4A9BFF", "#A0D87C", "#0072F0", "#47B361", "#6EABFF", "#9EE08E"]
 
@@ -260,15 +259,12 @@ if "CDT" in flt.columns:
 
 
 
+gj = get_geojson()
 
-geo = Path("arrondissements.geojson")
-
-if "Arr" in flt.columns and geo.exists():
+if "Arr" in flt.columns and gj:
     arr = flt["Arr"].value_counts().rename_axis("Arr").reset_index(name="n")
-    arr["Arr"] = arr["Arr"].astype(int) 
+    arr["Arr"] = arr["Arr"].astype(int)
     arr["pct"] = arr["n"] / arr["n"].sum() * 100
-
-    gj = json.loads(geo.read_text(encoding="utf-8"))
 
     fig = px.choropleth(
         arr,
