@@ -304,7 +304,7 @@ if "Etat de réalisation" in flt.columns:
     et_counts["%"] = (et_counts["Interventions"] / et_counts["Interventions"].sum() * 100).round(1)
     fig = px.bar(
         et_counts,
-        x="Etat",
+        x="Etat de réalisation",
         y="Interventions",
         title="Répartition des états de réalisation",
         color_discrete_sequence=ENEDIS_COLORS,
