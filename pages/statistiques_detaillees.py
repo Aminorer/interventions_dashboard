@@ -226,7 +226,7 @@ if {"Année", "Mois_nom"}.issubset(flt.columns):
                 merged[col] = pd.NA
 
         lines = []
-        for metric in ["tech", "max", "min", "moyenne"]:
+        for metric in ["tech", "max", "min", "mean"]:
             tmp = merged[["Date", metric]].copy()
             tmp["Metric"] = metric
             if metric == "tech":
