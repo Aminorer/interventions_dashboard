@@ -227,7 +227,11 @@ if {"Année", "Mois_nom"}.issubset(flt.columns):
 
         lines = []
         for metric in ["tech", "max", "min", "mean"]:
-            tmp = merged[["Date", metric]].copy()
+            tmp = merged[["Date"]].copy()
+            if metric in merged.columns:
+                tmp[metric] = merged[metric]
+            else:
+                tmp[metric] = pd.NA
             tmp["Metric"] = metric
             if metric == "tech":
                 tmp["Agent"] = tech
