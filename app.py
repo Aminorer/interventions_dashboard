@@ -39,6 +39,13 @@ st.image(str(logo), width=220)
 def _n(x):
     return ''.join(c for c in unicodedata.normalize('NFKD', str(x)) if not unicodedata.combining(c)).lower().replace(' ', '').replace('_', '')
 
+if hasattr(st, "cache_data"):
+    cache_decorator = st.cache_data
+else:  # pragma: no cover - fallback for older streamlit versions
+    cache_decorator = st.cache
+
+
+@cache_decorator
 def _load(upload):
     def _p(df):
         df.columns = df.columns.str.strip()
@@ -99,10 +106,15 @@ upl = st.sidebar.file_uploader("Fichier Excel", type=["xlsx"])
 if upl is None:
     st.stop()
 
-df = _load(upl)
-if df is None or df.empty:
-    st.error("Fichier non conforme")
-    st.stop()
+if "data" in st.session_state and st.session_state.get("upload_name") == getattr(upl, "name", None):
+    df = st.session_state["data"]
+else:
+    df = _load(upl)
+    if df is None or df.empty:
+        st.error("Fichier non conforme")
+        st.stop()
+    st.session_state["data"] = df
+    st.session_state["upload_name"] = getattr(upl, "name", None)
 
 years = sorted(df["Année"].unique())
 months = list(range(1, 13))
@@ -318,4 +330,3 @@ if "Arr" in flt.columns and geo.exists():
 cols_order = ["PRM", "Prestation", "Perimètre géographique", "Libelle du BI", "Commune", "Code et libelle Uo", "Origine", "Date de programmation", "Date de réalisation", "Statut de l'intervention", "Etat de réalisation", "Motif de non réalisation", "Temps théorique", "Temps réalisé", "Agent", "CDT", "Commentaire du technicien"]
 st.dataframe(flt[[c for c in cols_order if c in flt.columns]])
 
-st.session_state["data"] = df
