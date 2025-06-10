@@ -220,6 +220,11 @@ if {"Année", "Mois_nom"}.issubset(flt.columns):
 
         merged["Date"] = pd.to_datetime(dict(year=merged["Année"], month=merged["Mois"], day=1))
 
+        # Ensure all metric columns exist to avoid KeyError when they are missing
+        for col in ["tech", "max", "min", "mean", "agent_max", "agent_min"]:
+            if col not in merged.columns:
+                merged[col] = pd.NA
+
         lines = []
         for metric in ["tech", "max", "min", "mean"]:
             tmp = merged[["Date", metric]].copy()
