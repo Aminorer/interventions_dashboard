@@ -221,7 +221,7 @@ if {"Année", "Mois_nom"}.issubset(flt.columns):
         merged["Date"] = pd.to_datetime(dict(year=merged["Année"], month=merged["Mois"], day=1))
 
         lines = []
-        for metric in ["tech", "max", "min", "mean"]:
+        for metric in ["tech", "max", "min", "moyenne"]:
             tmp = merged[["Date", metric]].copy()
             tmp["Metric"] = metric
             if metric == "tech":
