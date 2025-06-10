@@ -232,7 +232,7 @@ if {"Année", "Mois_nom"}.issubset(flt.columns):
                 merged[col] = pd.NA
 
         lines = []
-        for metric in ["tech", "max", "min", "mean"]:
+        for metric in ["tech", "max", "min", "moyenne"]:
             tmp = merged[["Date", metric]].copy()
             tmp["Metric"] = metric
             if metric == "tech":
@@ -312,7 +312,7 @@ if "Etat de réalisation" in flt.columns:
     et_counts["%"] = (et_counts["Interventions"] / et_counts["Interventions"].sum() * 100).round(1)
     fig = px.bar(
         et_counts,
-        x="Etat de réalisation",
+        x="Etat",
         y="Interventions",
         title="Répartition des états de réalisation",
         color_discrete_sequence=ENEDIS_COLORS,
