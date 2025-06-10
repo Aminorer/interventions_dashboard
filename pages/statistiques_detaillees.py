@@ -322,7 +322,7 @@ if "Motif de non réalisation" in flt.columns:
 
     fig = px.bar(
         top_motifs,
-        x="Motif",
+        x="Motif de non réalisation",
         y="Interventions",
         title="Top 10 motifs de non réalisation",
         color_discrete_sequence=ENEDIS_COLORS,
@@ -431,7 +431,7 @@ if "CDT" in flt.columns:
     )
     fig = px.bar(
         cdt_counts,
-        x="Agent CDT",
+        x="CDT",
         y="Interventions",
         title="Interventions par agent CDT",
         color_discrete_sequence=ENEDIS_COLORS,
