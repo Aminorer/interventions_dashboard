@@ -1,6 +1,75 @@
 import streamlit as st, pandas as pd, numpy as np, plotly.express as px
 from utils import get_geojson
 
+
+def _params(*args):
+    """Return arguments as a tuple for caching."""
+    return tuple(args)
+
+
+@st.cache_data(show_spinner=False)
+def _value_counts(flt: pd.DataFrame, column: str, params: tuple, n: int | None = None, sort: bool = False) -> pd.DataFrame:
+    """Return value counts for *column* with optional top-n filtering."""
+    vc = flt[column].value_counts()
+    if sort:
+        vc = vc.sort_index()
+    if n is not None:
+        vc = vc.nlargest(n)
+    return vc.rename_axis(column).reset_index(name="Interventions")
+
+
+@st.cache_data(show_spinner=False)
+def _monthly_counts(flt: pd.DataFrame, params: tuple) -> pd.DataFrame:
+    """Return counts by year and month."""
+    return flt.groupby(["Année", "Mois_nom"]).size().reset_index(name="Interventions")
+
+
+@st.cache_data(show_spinner=False)
+def _date_prog_counts(flt: pd.DataFrame, params: tuple) -> pd.DataFrame:
+    """Return volume of programmations per day."""
+    dt = pd.to_datetime(flt["Date de programmation"], errors="coerce")
+    t = dt.dt.date.value_counts().sort_index().reset_index()
+    t.columns = ["Date", "Interventions"]
+    return t
+
+
+@st.cache_data(show_spinner=False)
+def _temps_moyens(flt: pd.DataFrame, params: tuple) -> pd.DataFrame:
+    """Return mean theoretical and realised times by prestation."""
+    return flt.groupby("Prestation")[["Temps théorique", "Temps réalisé"]].mean().reset_index()
+
+
+@st.cache_data(show_spinner=False)
+def _arr_counts(flt: pd.DataFrame, params: tuple) -> pd.DataFrame:
+    """Return interventions count by arrondissement with percentages."""
+    arr = flt["Arr"].value_counts().rename_axis("Arr").reset_index(name="n")
+    arr["Arr"] = arr["Arr"].astype(int)
+    arr["pct"] = arr["n"] / arr["n"].sum() * 100
+    return arr
+
+
+@st.cache_data(show_spinner=False)
+def _top_prm(flt: pd.DataFrame, params: tuple) -> pd.DataFrame:
+    """Return top 10 PRM after cleaning the column."""
+    prm = flt["PRM"].dropna().apply(lambda x: str(x).split(".")[0])
+    top = prm.value_counts().nlargest(10).reset_index()
+    top.columns = ["PRM", "Interventions"]
+    top["Rang"] = [f"{i+1}ᵉ" for i in range(len(top))]
+    return top
+
+
+@st.cache_data(show_spinner=False)
+def _uo_top(flt: pd.DataFrame, params: tuple) -> pd.DataFrame:
+    """Return top 10 UO counts."""
+    return (
+        flt["Code et libelle Uo"]
+        .value_counts()
+        .nlargest(10)
+        .rename_axis("UO")
+        .reset_index(name="Interventions")
+    )
+
+
 ENEDIS_COLORS = ["#2C75FF", "#75C700", "#4A9BFF", "#A0D87C", "#0072F0", "#47B361", "#6EABFF", "#9EE08E"]
 
 st.set_page_config(page_title="Détail par technicien", layout="wide")
@@ -70,8 +139,12 @@ if "Temps réalisé" in flt.columns:
     c4.metric("Durée min", f"{pos.min():.1f}")
 
 if "Année" in flt.columns:
-    va = flt["Année"].value_counts().sort_index().reset_index()
-    va.columns = ["Année", "Interventions"]
+    va = _value_counts(
+        flt,
+        "Année",
+        _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
+        sort=True,
+    )
     fig = px.bar(
         va,
         x="Année",
@@ -85,7 +158,10 @@ if "Année" in flt.columns:
     st.plotly_chart(fig, use_container_width=True)
 
 if {"Année", "Mois_nom"}.issubset(flt.columns):
-    vm = flt.groupby(["Année", "Mois_nom"]).size().reset_index(name="Interventions")
+    vm = _monthly_counts(
+        flt,
+        _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
+    )
     fig = px.bar(
         vm,
         x="Mois_nom",
@@ -98,7 +174,11 @@ if {"Année", "Mois_nom"}.issubset(flt.columns):
     st.plotly_chart(fig, use_container_width=True)
 
 if "Prestation" in flt.columns:
-    t = flt["Prestation"].value_counts().rename_axis("Prestation").reset_index(name="Interventions")
+    t = _value_counts(
+        flt,
+        "Prestation",
+        _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
+    )
     t["%"] = (t["Interventions"] / t["Interventions"].sum() * 100).round(1)
     fig = px.pie(
         t,
@@ -112,7 +192,11 @@ if "Prestation" in flt.columns:
     st.plotly_chart(fig, use_container_width=True)
 
 if "Statut de l'intervention" in flt.columns:
-    statut_counts = flt["Statut de l'intervention"].value_counts().rename_axis("Statut").reset_index(name="Interventions")
+    statut_counts = _value_counts(
+        flt,
+        "Statut de l'intervention",
+        _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
+    )
     total = statut_counts["Interventions"].sum()
     statut_counts["%"] = (statut_counts["Interventions"] / total * 100).round(1)
 
@@ -129,7 +213,11 @@ if "Statut de l'intervention" in flt.columns:
     st.plotly_chart(fig, use_container_width=True)
 
 if "Etat de réalisation" in flt.columns:
-    et_counts = flt["Etat de réalisation"].value_counts().rename_axis("Etat").reset_index(name="Interventions")
+    et_counts = _value_counts(
+        flt,
+        "Etat de réalisation",
+        _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
+    )
     et_counts["%"] = (et_counts["Interventions"] / et_counts["Interventions"].sum() * 100).round(1)
     fig = px.bar(
         et_counts,
@@ -145,12 +233,11 @@ if "Etat de réalisation" in flt.columns:
 
 
 if "Motif de non réalisation" in flt.columns:
-    top_motifs = (
-        flt["Motif de non réalisation"]
-        .value_counts()
-        .nlargest(10)
-        .rename_axis("Motif")
-        .reset_index(name="Interventions")
+    top_motifs = _value_counts(
+        flt,
+        "Motif de non réalisation",
+        _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
+        n=10,
     )
     total = top_motifs["Interventions"].sum()
     top_motifs["%"] = (top_motifs["Interventions"] / total * 100).round(1)
@@ -168,7 +255,12 @@ if "Motif de non réalisation" in flt.columns:
     st.plotly_chart(fig, use_container_width=True)
 
 if "Libelle du BI" in flt.columns:
-    t = flt["Libelle du BI"].value_counts().nlargest(10).reset_index()
+    t = _value_counts(
+        flt,
+        "Libelle du BI",
+        _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
+        n=10,
+    )
     t.columns = ["Libellé", "Interventions"]
     t["%"] = (t["Interventions"] / t["Interventions"].sum() * 100).round(1)
     fig = px.bar(
@@ -184,10 +276,10 @@ if "Libelle du BI" in flt.columns:
     st.plotly_chart(fig, use_container_width=True)
 
 if "PRM" in flt.columns:
-    flt["PRM_clean"] = flt["PRM"].dropna().apply(lambda x: str(x).split('.')[0])
-    top_prm = flt["PRM_clean"].value_counts().nlargest(10).reset_index()
-    top_prm.columns = ["PRM", "Interventions"]
-    top_prm["Rang"] = [f"{i+1}ᵉ" for i in range(len(top_prm))]
+    top_prm = _top_prm(
+        flt,
+        _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
+    )
     fig = px.bar(
         top_prm,
         x="Rang",
@@ -203,8 +295,11 @@ if "PRM" in flt.columns:
     st.plotly_chart(fig, use_container_width=True)
 
 if "Origine" in flt.columns:
-    t = flt["Origine"].value_counts().reset_index()
-    t.columns = ["Origine", "Interventions"]
+    t = _value_counts(
+        flt,
+        "Origine",
+        _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
+    )
     t["%"] = (t["Interventions"] / t["Interventions"].sum() * 100).round(1)
     fig = px.bar(
         t,
@@ -220,9 +315,10 @@ if "Origine" in flt.columns:
 
 if "Date de programmation" in flt.columns:
     try:
-        flt["Date de programmation"] = pd.to_datetime(flt["Date de programmation"], errors='coerce')
-        t = flt["Date de programmation"].dt.date.value_counts().sort_index().reset_index()
-        t.columns = ["Date", "Interventions"]
+        t = _date_prog_counts(
+            flt,
+            _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
+        )
         fig = px.bar(
             t,
             x="Date",
@@ -235,7 +331,10 @@ if "Date de programmation" in flt.columns:
         pass
 
 if {"Temps théorique", "Temps réalisé", "Prestation"}.issubset(flt.columns):
-    t = flt.groupby("Prestation")[["Temps théorique", "Temps réalisé"]].mean().reset_index()
+    t = _temps_moyens(
+        flt,
+        _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
+    )
     fig = px.bar(
         t,
         x="Prestation",
@@ -247,7 +346,11 @@ if {"Temps théorique", "Temps réalisé", "Prestation"}.issubset(flt.columns):
     st.plotly_chart(fig, use_container_width=True)
 
 if "CDT" in flt.columns:
-    cdt_counts = flt["CDT"].value_counts().rename_axis("Agent CDT").reset_index(name="Interventions")
+    cdt_counts = _value_counts(
+        flt,
+        "CDT",
+        _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
+    )
     fig = px.bar(
         cdt_counts,
         x="Agent CDT",
@@ -262,9 +365,10 @@ if "CDT" in flt.columns:
 gj = get_geojson()
 
 if "Arr" in flt.columns and gj:
-    arr = flt["Arr"].value_counts().rename_axis("Arr").reset_index(name="n")
-    arr["Arr"] = arr["Arr"].astype(int)
-    arr["pct"] = arr["n"] / arr["n"].sum() * 100
+    arr = _arr_counts(
+        flt,
+        _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
+    )
 
     fig = px.choropleth(
         arr,
@@ -285,11 +389,14 @@ if "Arr" in flt.columns and gj:
 
 if "Code et libelle Uo" in flt.columns:
     fig = px.bar(
-        flt["Code et libelle Uo"].value_counts().nlargest(10).rename_axis("UO").reset_index(name="Interventions"),
+        _uo_top(
+            flt,
+            _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
+        ),
         x="UO",
         y="Interventions",
         title="Top 10 UO",
-        color_discrete_sequence=ENEDIS_COLORS
+        color_discrete_sequence=ENEDIS_COLORS,
     )
     st.plotly_chart(fig, use_container_width=True)
 
