@@ -307,6 +307,8 @@ if "Etat de réalisation" in flt.columns:
         "Etat de réalisation",
         _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
     )
+    # Rename column for shorter axis label
+    et_counts = et_counts.rename(columns={"Etat de réalisation": "Etat"})
     et_counts["%"] = (et_counts["Interventions"] / et_counts["Interventions"].sum() * 100).round(1)
     fig = px.bar(
         et_counts,
