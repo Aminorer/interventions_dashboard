@@ -220,9 +220,18 @@ if {"Année", "Mois_nom"}.issubset(flt.columns):
 
         merged["Date"] = pd.to_datetime(dict(year=merged["Année"], month=merged["Mois"], day=1))
 
+        # Ensure all metric columns exist to avoid KeyError when they are missing
+        for col in ["tech", "max", "min", "mean", "agent_max", "agent_min"]:
+            if col not in merged.columns:
+                merged[col] = pd.NA
+
         lines = []
         for metric in ["tech", "max", "min", "mean"]:
-            tmp = merged[["Date", metric]].copy()
+            tmp = merged[["Date"]].copy()
+            if metric in merged.columns:
+                tmp[metric] = merged[metric]
+            else:
+                tmp[metric] = pd.NA
             tmp["Metric"] = metric
             if metric == "tech":
                 tmp["Agent"] = tech
@@ -299,7 +308,7 @@ if "Etat de réalisation" in flt.columns:
     et_counts["%"] = (et_counts["Interventions"] / et_counts["Interventions"].sum() * 100).round(1)
     fig = px.bar(
         et_counts,
-        x="Etat",
+        x="Etat de réalisation",
         y="Interventions",
         title="Répartition des états de réalisation",
         color_discrete_sequence=ENEDIS_COLORS,
@@ -322,7 +331,7 @@ if "Motif de non réalisation" in flt.columns:
 
     fig = px.bar(
         top_motifs,
-        x="Motif",
+        x="Motif de non réalisation",
         y="Interventions",
         title="Top 10 motifs de non réalisation",
         color_discrete_sequence=ENEDIS_COLORS,
@@ -431,7 +440,7 @@ if "CDT" in flt.columns:
     )
     fig = px.bar(
         cdt_counts,
-        x="Agent CDT",
+        x="CDT",
         y="Interventions",
         title="Interventions par agent CDT",
         color_discrete_sequence=ENEDIS_COLORS,
