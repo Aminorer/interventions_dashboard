@@ -13,7 +13,6 @@ if "data" not in st.session_state:
 
 df = st.session_state["data"]
 
-st.title("Statistiques comparatives")
 
 years = sorted(df["Année"].unique())
 months = list(range(1, 13))
@@ -82,6 +81,8 @@ if agences:
 if flt.empty or comp.empty:
     st.warning("Aucune donnée pour ce technicien ou la comparaison.")
     st.stop()
+
+st.title(f"Statistiques comparatives – {tech}")
 
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Interventions technicien", len(flt))
