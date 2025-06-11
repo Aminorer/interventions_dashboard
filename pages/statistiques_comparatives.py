@@ -167,7 +167,6 @@ bar_cols = [
     ("Libelle du BI", "Top 10 Libellé BI"),
     ("Code et libelle Uo", "Top 10 UO"),
     ("Origine", "Répartition par Origine"),
-    ("CDT", "Interventions par agent CDT"),
 ]
 
 for col, title in bar_cols:
