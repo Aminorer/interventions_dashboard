@@ -13,6 +13,8 @@ if "data" not in st.session_state:
 
 df = st.session_state["data"]
 
+st.title("Statistiques comparatives")
+
 years = sorted(df["Année"].unique())
 months = list(range(1, 13))
 days = list(range(1, 32))
@@ -83,7 +85,11 @@ if flt.empty or comp.empty:
 
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Interventions technicien", len(flt))
-c2.metric("Interventions comparées", len(comp))
+n_comp_agents = comp["Agent"].nunique() or 1
+c2.metric(
+    "Interventions comparées (moyenne)",
+    f"{len(comp) / n_comp_agents:.1f}"
+)
 if "Temps réalisé" in flt.columns:
     c3.metric("Durée moyenne tech", f"{flt['Temps réalisé'].mean():.1f}")
     c4.metric("Durée moyenne comp", f"{comp['Temps réalisé'].mean():.1f}")
@@ -92,7 +98,8 @@ if "Temps réalisé" in flt.columns:
 
 def _comp_counts(d1: pd.DataFrame, d2: pd.DataFrame, col: str, n: int | None = None, sort: bool = False) -> pd.DataFrame:
     vc1 = d1[col].value_counts()
-    vc2 = d2[col].value_counts()
+    n_agents = d2["Agent"].nunique() if "Agent" in d2.columns else 1
+    vc2 = d2[col].value_counts() / n_agents
     tot = (vc1 + vc2)
     if sort:
         tot = tot.sort_index()
@@ -182,8 +189,33 @@ if "Arr" in flt.columns and gj:
     arr = pd.merge(arr_t, arr_c, on="Arr", how="outer").fillna(0)
     arr["pct_tech"] = arr["tech"] / arr["tech"].sum() * 100
     arr["pct_comp"] = arr["comp"] / arr["comp"].sum() * 100
-    fig = px.choropleth(arr, geojson=gj, locations="Arr", color="pct_tech", color_continuous_scale=[[0, "#E6F0FF"], [1, "#2C75FF"]], featureidkey="properties.c_ar", hover_data={"pct_tech":":.1f", "pct_comp":":.1f"}, center={"lat":48.8566, "lon":2.3522}, title="Interventions par arrondissement – technicien")
+    col_t, col_c = st.columns(2)
+    fig = px.choropleth(
+        arr,
+        geojson=gj,
+        locations="Arr",
+        color="pct_tech",
+        color_continuous_scale=[[0, "#E6F0FF"], [1, "#2C75FF"]],
+        featureidkey="properties.c_ar",
+        hover_data={"pct_tech": ":.1f", "pct_comp": ":.1f"},
+        center={"lat": 48.8566, "lon": 2.3522},
+        title="Interventions par arrondissement – technicien",
+    )
     fig.update_geos(fitbounds="locations", visible=False)
-    st.plotly_chart(fig, use_container_width=True)
+    col_t.plotly_chart(fig, use_container_width=True)
+
+    fig_c = px.choropleth(
+        arr,
+        geojson=gj,
+        locations="Arr",
+        color="pct_comp",
+        color_continuous_scale=[[0, "#E6F0FF"], [1, "#75C700"]],
+        featureidkey="properties.c_ar",
+        hover_data={"pct_tech": ":.1f", "pct_comp": ":.1f"},
+        center={"lat": 48.8566, "lon": 2.3522},
+        title="Interventions par arrondissement – comparaison",
+    )
+    fig_c.update_geos(fitbounds="locations", visible=False)
+    col_c.plotly_chart(fig_c, use_container_width=True)
 
 st.dataframe(flt)
