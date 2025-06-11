@@ -34,7 +34,6 @@ Cette page se concentre sur un technicien sélectionné et reprend la plupart de
 - **Top 10 Libellé BI** et **Top 10 PRM** pour le technicien.
 - **Répartition par Origine** et **volume des programmations par jour**.
 - **Temps théorique vs réalisé par prestation**.
-- **Interventions par agent CDT** : nombre d'apparitions de chaque agent dans la colonne `CDT`.
 - **Interventions par arrondissement** (carte).
 - **Top 10 UO**.
 - Un tableau détaille les lignes correspondant au filtre appliqué.
