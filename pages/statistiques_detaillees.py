@@ -173,94 +173,9 @@ if {"Année", "Mois_nom"}.issubset(flt.columns):
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    if {"Agent"}.issubset(df.columns):
-        all_flt = df[
-            df["Année"].isin(y)
-            & df["Mois"].isin(m)
-            & df["Jour"].isin(d)
-        ]
-        if prestations:
-            all_flt = all_flt[all_flt["Prestation"].isin(pr)]
-        if uos:
-            all_flt = all_flt[all_flt["Code et libelle Uo"].isin(uo_sel)]
-        if statuts:
-            all_flt = all_flt[all_flt["Statut de l'intervention"].isin(st_sel)]
-        if etats:
-            all_flt = all_flt[all_flt["Etat de réalisation"].isin(et_sel)]
-        if agences:
-            all_flt = all_flt[all_flt["Agence"].isin(agc_sel)]
 
-        grp = (
-            all_flt.groupby(["Année", "Mois", "Mois_nom", "Agent"])
-            .size()
-            .reset_index(name="Interventions")
-        )
 
-        months_df = grp[["Année", "Mois", "Mois_nom"]].drop_duplicates()
-        tech_df = (
-            grp[grp["Agent"] == tech]
-            [["Année", "Mois", "Mois_nom", "Interventions"]]
-            .rename(columns={"Interventions": "tech"})
-        )
-        merged = months_df.merge(tech_df, on=["Année", "Mois", "Mois_nom"], how="left")
 
-        idx = grp.groupby(["Année", "Mois", "Mois_nom"])["Interventions"].idxmax()
-        max_df = grp.loc[idx, ["Année", "Mois", "Mois_nom", "Agent", "Interventions"]]
-        max_df = max_df.rename(columns={"Interventions": "max", "Agent": "agent_max"})
-        merged = merged.merge(max_df, on=["Année", "Mois", "Mois_nom"], how="left")
-
-        nz = grp[grp["Interventions"] > 0]
-        idx = nz.groupby(["Année", "Mois", "Mois_nom"])["Interventions"].idxmin()
-        min_df = nz.loc[idx, ["Année", "Mois", "Mois_nom", "Agent", "Interventions"]]
-        min_df = min_df.rename(columns={"Interventions": "min", "Agent": "agent_min"})
-        merged = merged.merge(min_df, on=["Année", "Mois", "Mois_nom"], how="left")
-
-        mean_df = (
-            grp.groupby(["Année", "Mois", "Mois_nom"])["Interventions"]
-            .mean()
-            .reset_index(name="mean")
-        )
-        merged = merged.merge(mean_df, on=["Année", "Mois", "Mois_nom"], how="left")
-        # Use French label for mean values
-        merged = merged.rename(columns={"mean": "moyenne"})
-
-        merged["Date"] = pd.to_datetime(dict(year=merged["Année"], month=merged["Mois"], day=1))
-
-        # Ensure all metric columns exist to avoid KeyError when they are missing
-        for col in ["tech", "max", "min", "moyenne", "agent_max", "agent_min"]:
-            if col not in merged.columns:
-                merged[col] = pd.NA
-
-        lines = []
-        for metric in ["tech", "max", "min", "moyenne"]:
-            tmp = merged[["Date", metric]].copy()
-            tmp["Metric"] = metric
-            if metric == "tech":
-                tmp["Agent"] = tech
-            elif metric == "max":
-                tmp["Agent"] = merged["agent_max"]
-            elif metric == "min":
-                tmp["Agent"] = merged["agent_min"]
-            else:
-                tmp["Agent"] = ""
-            tmp = tmp.rename(columns={metric: "Interventions"})
-            lines.append(tmp)
-        lines = pd.concat(lines, ignore_index=True)
-
-        fig2 = px.line(
-            lines,
-            x="Date",
-            y="Interventions",
-            color="Metric",
-            markers=True,
-            color_discrete_sequence=ENEDIS_COLORS[:4],
-            title="Volume mensuel comparé",
-            hover_data={"Agent": True},
-        )
-        fig2.update_traces(
-            hovertemplate="%{x|%Y-%m}<br>%{customdata[0]}<br>%{y} interventions"
-        )
-        st.plotly_chart(fig2, use_container_width=True)
 
 if "Prestation" in flt.columns:
     t = _value_counts(
@@ -343,6 +258,19 @@ if "Motif de non réalisation" in flt.columns:
     )
     fig.update_traces(hovertemplate="%{x}<br>Interventions : %{y}<br>% : %{customdata[0]}%")
     fig.update_layout(xaxis_tickangle=-45)
+    st.plotly_chart(fig, use_container_width=True)
+
+if "Code et libelle Uo" in flt.columns:
+    fig = px.bar(
+        _uo_top(
+            flt,
+            _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
+        ),
+        x="UO",
+        y="Interventions",
+        title="Top 10 UO",
+        color_discrete_sequence=ENEDIS_COLORS,
+    )
     st.plotly_chart(fig, use_container_width=True)
 
 if "Libelle du BI" in flt.columns:
@@ -477,18 +405,5 @@ if "Arr" in flt.columns and gj:
     fig.update_traces(hovertemplate="Arr %{location}<br>%{customdata[0]}%")
     st.plotly_chart(fig, use_container_width=True)
 
-
-if "Code et libelle Uo" in flt.columns:
-    fig = px.bar(
-        _uo_top(
-            flt,
-            _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
-        ),
-        x="UO",
-        y="Interventions",
-        title="Top 10 UO",
-        color_discrete_sequence=ENEDIS_COLORS,
-    )
-    st.plotly_chart(fig, use_container_width=True)
 
 st.dataframe(flt)
