@@ -1,9 +1,10 @@
 # Tableau de bord des interventions
 
-Cette application Streamlit permet d'explorer les interventions à partir d'un fichier Excel. Elle comporte deux pages principales :
+Cette application Streamlit permet d'explorer les interventions à partir d'un fichier Excel. Elle comporte trois pages principales :
 
 - **Page principale (`app.py`)**
 - **Page de statistiques détaillées (`pages/statistiques_detaillees.py`)**
+- **Page de statistiques comparatives (`pages/statistiques_comparatives.py`)**
 
 Ci-dessous la liste des graphiques disponibles sur chaque page.
 
@@ -37,5 +38,19 @@ Cette page se concentre sur un technicien sélectionné et reprend la plupart de
 - **Interventions par arrondissement** (carte).
 - **Top 10 UO**.
 - Un tableau détaille les lignes correspondant au filtre appliqué.
+
+## Page de statistiques comparatives
+
+Cette page permet de comparer un technicien sélectionné avec un ou plusieurs autres agents.
+Elle propose les graphiques suivants :
+
+- **Volume annuel comparé** : histogramme comparant le volume du technicien à la moyenne de la sélection.
+- **Volume mensuel comparé** : courbe montrant l'évolution du technicien avec les valeurs maximale, minimale et moyenne du groupe.
+- **Répartition prestations**, **statuts** et **états** : bar charts comparant la distribution pour le technicien et pour la comparaison.
+- **Top 10 motifs de non réalisation**, **Top 10 Libellé BI**, **Top 10 UO** : classements comparatifs.
+- **Répartition par Origine** : comparaison de la provenance des demandes.
+- **Temps théorique vs réalisé (comparé)** : comparaison des durées moyennes par prestation.
+- **Interventions par arrondissement – technicien** et **comparaison** : deux cartes choroplèthes.
+- Un tableau récapitule les lignes correspondant au technicien filtré.
 
 Pour utiliser l'application, chargez un fichier Excel via la page principale puis naviguez dans les différentes pages pour explorer les données.
