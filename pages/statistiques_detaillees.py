@@ -1,5 +1,5 @@
 import streamlit as st, pandas as pd, numpy as np, plotly.express as px
-from utils import get_geojson
+from utils import get_geojson, build_interventions
 
 
 def _params(*args):
@@ -127,20 +127,25 @@ if flt.empty:
     st.warning("Aucune donnée pour ce technicien.")
     st.stop()
 
+interventions = build_interventions(flt)
+if interventions.empty:
+    st.warning("Aucune intervention selon les critères définis.")
+    st.stop()
+
 st.title(f"Statistiques détaillées – {tech}")
 
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Interventions", len(flt))
+c1.metric("Interventions", len(interventions))
 
-if "Temps réalisé" in flt.columns:
-    pos = flt["Temps réalisé"][flt["Temps réalisé"] > 0]
+if "Temps réalisé" in interventions.columns:
+    pos = interventions["Temps réalisé"][interventions["Temps réalisé"] > 0]
     c2.metric("Durée moy", f"{pos.mean():.1f}")
     c3.metric("Durée max", f"{pos.max():.1f}")
     c4.metric("Durée min", f"{pos.min():.1f}")
 
-if "Année" in flt.columns:
+if "Année" in interventions.columns:
     va = _value_counts(
-        flt,
+        interventions,
         "Année",
         _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
         sort=True,
@@ -157,9 +162,9 @@ if "Année" in flt.columns:
                       hovertemplate="Année %{x}<br>%{y} interventions")
     st.plotly_chart(fig, use_container_width=True)
 
-if {"Année", "Mois_nom"}.issubset(flt.columns):
+if {"Année", "Mois_nom"}.issubset(interventions.columns):
     vm = _monthly_counts(
-        flt,
+        interventions,
         _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
     )
     fig = px.bar(
@@ -177,9 +182,9 @@ if {"Année", "Mois_nom"}.issubset(flt.columns):
 
 
 
-if "Prestation" in flt.columns:
+if "Prestation" in interventions.columns:
     t = _value_counts(
-        flt,
+        interventions,
         "Prestation",
         _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
     )
@@ -195,9 +200,9 @@ if "Prestation" in flt.columns:
     fig.update_traces(textinfo="percent+label", hovertemplate="%{label}<br>Interventions : %{value}<br>% : %{customdata[0]}")
     st.plotly_chart(fig, use_container_width=True)
 
-if "Statut de l'intervention" in flt.columns:
+if "Statut de l'intervention" in interventions.columns:
     statut_counts = _value_counts(
-        flt,
+        interventions,
         "Statut de l'intervention",
         _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
     )
@@ -216,9 +221,9 @@ if "Statut de l'intervention" in flt.columns:
     fig.update_layout(xaxis_tickangle=-45)
     st.plotly_chart(fig, use_container_width=True)
 
-if "Etat de réalisation" in flt.columns:
+if "Etat de réalisation" in interventions.columns:
     et_counts = _value_counts(
-        flt,
+        interventions,
         "Etat de réalisation",
         _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
     )
@@ -238,9 +243,9 @@ if "Etat de réalisation" in flt.columns:
     st.plotly_chart(fig, use_container_width=True)
 
 
-if "Motif de non réalisation" in flt.columns:
+if "Motif de non réalisation" in interventions.columns:
     top_motifs = _value_counts(
-        flt,
+        interventions,
         "Motif de non réalisation",
         _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
         n=10,
@@ -260,10 +265,10 @@ if "Motif de non réalisation" in flt.columns:
     fig.update_layout(xaxis_tickangle=-45)
     st.plotly_chart(fig, use_container_width=True)
 
-if "Code et libelle Uo" in flt.columns:
+if "Code et libelle Uo" in interventions.columns:
     fig = px.bar(
         _uo_top(
-            flt,
+            interventions,
             _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
         ),
         x="UO",
@@ -273,9 +278,9 @@ if "Code et libelle Uo" in flt.columns:
     )
     st.plotly_chart(fig, use_container_width=True)
 
-if "Libelle du BI" in flt.columns:
+if "Libelle du BI" in interventions.columns:
     t = _value_counts(
-        flt,
+        interventions,
         "Libelle du BI",
         _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
         n=10,
@@ -294,9 +299,9 @@ if "Libelle du BI" in flt.columns:
     fig.update_traces(hovertemplate="%{x}<br>%{text}%")
     st.plotly_chart(fig, use_container_width=True)
 
-if "PRM" in flt.columns:
+if "PRM" in interventions.columns:
     top_prm = _top_prm(
-        flt,
+        interventions,
         _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
     )
     fig = px.bar(
@@ -313,9 +318,9 @@ if "PRM" in flt.columns:
     fig.update_layout(xaxis_title="Rang", yaxis_title="Nombre d’interventions")
     st.plotly_chart(fig, use_container_width=True)
 
-if "Origine" in flt.columns:
+if "Origine" in interventions.columns:
     t = _value_counts(
-        flt,
+        interventions,
         "Origine",
         _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
     )
@@ -332,10 +337,10 @@ if "Origine" in flt.columns:
     fig.update_traces(hovertemplate="%{x}<br>%{text}%")
     st.plotly_chart(fig, use_container_width=True)
 
-if "Date de programmation" in flt.columns:
+if "Date de programmation" in interventions.columns:
     try:
         t = _date_prog_counts(
-            flt,
+            interventions,
             _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
         )
         fig = px.bar(
@@ -349,9 +354,9 @@ if "Date de programmation" in flt.columns:
     except Exception:
         pass
 
-if {"Temps théorique", "Temps réalisé", "Prestation"}.issubset(flt.columns):
+if {"Temps théorique", "Temps réalisé", "Prestation"}.issubset(interventions.columns):
     t = _temps_moyens(
-        flt,
+        interventions,
         _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
     )
     fig = px.bar(
@@ -364,9 +369,9 @@ if {"Temps théorique", "Temps réalisé", "Prestation"}.issubset(flt.columns):
     )
     st.plotly_chart(fig, use_container_width=True)
 
-if "CDT" in flt.columns:
+if "CDT" in interventions.columns:
     cdt_counts = _value_counts(
-        flt,
+        interventions,
         "CDT",
         _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
     )
@@ -383,9 +388,9 @@ if "CDT" in flt.columns:
 
 gj = get_geojson()
 
-if "Arr" in flt.columns and gj:
+if "Arr" in interventions.columns and gj:
     arr = _arr_counts(
-        flt,
+        interventions,
         _params(tech, y, m, d, agc_sel, pr, uo_sel, st_sel, et_sel),
     )
 
@@ -406,4 +411,4 @@ if "Arr" in flt.columns and gj:
     st.plotly_chart(fig, use_container_width=True)
 
 
-st.dataframe(flt)
+st.dataframe(interventions)

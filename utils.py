@@ -1,5 +1,7 @@
 import json
 from pathlib import Path
+
+import pandas as pd
 import requests
 import streamlit as st
 
@@ -48,3 +50,37 @@ def get_geojson():
         except Exception as e:
             st.warning(f"Erreur de lecture {GEO}: {e}")
     return None
+
+
+def build_interventions(df: pd.DataFrame) -> pd.DataFrame:
+    """Return a deduplicated view of *df* using the (PRM, date, équipe) rule.
+
+    - PRM is cleaned to remove decimal suffixes.
+    - The date is taken from the "Date de réalisation" column and reduced to the
+      calendar day.
+    - L'équipe corresponds to the couple Agent + CDT.
+
+    If one of the key columns is missing, the original frame is returned.
+    """
+
+    if df.empty:
+        return df.copy()
+
+    res = df.copy()
+
+    if "PRM" in res.columns:
+        res["PRM_clean"] = res["PRM"].apply(lambda x: str(x).split(".")[0] if pd.notna(x) else pd.NA)
+
+    if "Date de réalisation" in res.columns:
+        res["Date_intervention"] = pd.to_datetime(res["Date de réalisation"], errors="coerce").dt.date
+
+    agent = res["Agent"].fillna("") if "Agent" in res.columns else pd.Series("", index=res.index)
+    cdt = res["CDT"].fillna("") if "CDT" in res.columns else pd.Series("", index=res.index)
+    res["Equipe"] = (agent.astype(str) + " / " + cdt.astype(str)).str.strip(" /")
+
+    keys = ["PRM_clean", "Date_intervention", "Equipe"]
+    if not set(keys).issubset(res.columns):
+        return res
+
+    res = res.dropna(subset=["Date_intervention"]).drop_duplicates(subset=keys)
+    return res

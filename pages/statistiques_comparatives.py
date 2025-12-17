@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from utils import get_geojson
+from utils import get_geojson, build_interventions
 
 ENEDIS_COLORS = ["#2C75FF", "#75C700", "#4A9BFF", "#A0D87C", "#0072F0", "#47B361", "#6EABFF", "#9EE08E"]
 
@@ -82,18 +82,25 @@ if flt.empty or comp.empty:
     st.warning("Aucune donnée pour ce technicien ou la comparaison.")
     st.stop()
 
+interventions_tech = build_interventions(flt)
+interventions_comp = build_interventions(comp)
+
+if interventions_tech.empty or interventions_comp.empty:
+    st.warning("Aucune intervention selon les critères définis.")
+    st.stop()
+
 st.title(f"Statistiques comparatives – {tech}")
 
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Interventions technicien", len(flt))
-n_comp_agents = comp["Agent"].nunique() or 1
+c1.metric("Interventions technicien", len(interventions_tech))
+n_comp_agents = interventions_comp["Agent"].nunique() or 1
 c2.metric(
     "Interventions comparées (moyenne)",
-    f"{len(comp) / n_comp_agents:.1f}"
+    f"{len(interventions_comp) / n_comp_agents:.1f}"
 )
-if "Temps réalisé" in flt.columns:
-    c3.metric("Durée moyenne tech", f"{flt['Temps réalisé'].mean():.1f}")
-    c4.metric("Durée moyenne comp", f"{comp['Temps réalisé'].mean():.1f}")
+if "Temps réalisé" in interventions_tech.columns:
+    c3.metric("Durée moyenne tech", f"{interventions_tech['Temps réalisé'].mean():.1f}")
+    c4.metric("Durée moyenne comp", f"{interventions_comp['Temps réalisé'].mean():.1f}")
 
 # Fonctions utilitaires
 
@@ -116,13 +123,13 @@ def _comp_counts(d1: pd.DataFrame, d2: pd.DataFrame, col: str, n: int | None = N
     })
 
 # Volume annuel comparé
-va = _comp_counts(flt, comp, "Année", sort=True)
+va = _comp_counts(interventions_tech, interventions_comp, "Année", sort=True)
 fig = px.bar(va, x="Année", y=["Technicien", "Comparaison"], barmode="group", color_discrete_sequence=ENEDIS_COLORS[:2], title="Volume annuel comparé")
 st.plotly_chart(fig, use_container_width=True)
 
 # Volume mensuel comparé (reprend l'ancien graphique)
 if {"Agent"}.issubset(df.columns):
-    grp = comp.groupby(["Année", "Mois", "Mois_nom", "Agent"]).size().reset_index(name="Interventions")
+    grp = interventions_comp.groupby(["Année", "Mois", "Mois_nom", "Agent"]).size().reset_index(name="Interventions")
     months_df = grp[["Année", "Mois", "Mois_nom"]].drop_duplicates()
     tech_df = grp[grp["Agent"] == tech][["Année", "Mois", "Mois_nom", "Interventions"]].rename(columns={"Interventions": "tech"})
     merged = months_df.merge(tech_df, on=["Année", "Mois", "Mois_nom"], how="left")
@@ -170,22 +177,22 @@ bar_cols = [
 ]
 
 for col, title in bar_cols:
-    if col in flt.columns:
-        t = _comp_counts(flt, comp, col, n=10)
+    if col in interventions_tech.columns:
+        t = _comp_counts(interventions_tech, interventions_comp, col, n=10)
         fig = px.bar(t, x=col, y=["Technicien", "Comparaison"], barmode="group", color_discrete_sequence=ENEDIS_COLORS[:2], title=title)
         st.plotly_chart(fig, use_container_width=True)
 
-if {"Temps théorique", "Temps réalisé", "Prestation"}.issubset(flt.columns):
-    tech_temps = flt.groupby("Prestation")[["Temps théorique", "Temps réalisé"]].mean().reset_index()
-    comp_temps = comp.groupby("Prestation")[["Temps théorique", "Temps réalisé"]].mean().reset_index()
+if {"Temps théorique", "Temps réalisé", "Prestation"}.issubset(interventions_tech.columns):
+    tech_temps = interventions_tech.groupby("Prestation")[["Temps théorique", "Temps réalisé"]].mean().reset_index()
+    comp_temps = interventions_comp.groupby("Prestation")[["Temps théorique", "Temps réalisé"]].mean().reset_index()
     tmp = pd.merge(tech_temps, comp_temps, on="Prestation", how="outer", suffixes=("_tech", "_comp")).fillna(0)
     fig = px.bar(tmp, x="Prestation", y=["Temps théorique_tech", "Temps théorique_comp", "Temps réalisé_tech", "Temps réalisé_comp"], barmode="group", color_discrete_sequence=ENEDIS_COLORS[:4], title="Temps théorique vs réalisé (comparé)")
     st.plotly_chart(fig, use_container_width=True)
 
 gj = get_geojson()
-if "Arr" in flt.columns and gj:
-    arr_t = flt["Arr"].value_counts().rename_axis("Arr").reset_index(name="tech")
-    arr_c = comp["Arr"].value_counts().rename_axis("Arr").reset_index(name="comp")
+if "Arr" in interventions_tech.columns and gj:
+    arr_t = interventions_tech["Arr"].value_counts().rename_axis("Arr").reset_index(name="tech")
+    arr_c = interventions_comp["Arr"].value_counts().rename_axis("Arr").reset_index(name="comp")
     arr = pd.merge(arr_t, arr_c, on="Arr", how="outer").fillna(0)
     arr["pct_tech"] = arr["tech"] / arr["tech"].sum() * 100
     arr["pct_comp"] = arr["comp"] / arr["comp"].sum() * 100
@@ -218,4 +225,4 @@ if "Arr" in flt.columns and gj:
     fig_c.update_geos(fitbounds="locations", visible=False)
     col_c.plotly_chart(fig_c, use_container_width=True)
 
-st.dataframe(flt)
+st.dataframe(interventions_tech)

@@ -1,5 +1,5 @@
 import streamlit as st, pandas as pd, numpy as np, plotly.express as px, unicodedata, re
-from utils import get_logo_bytes, get_geojson
+from utils import get_logo_bytes, get_geojson, build_interventions
 
 st.set_page_config(page_title="Interventions Enedis", layout="wide", initial_sidebar_state="expanded")
 
@@ -138,20 +138,25 @@ if flt.empty:
     st.warning("Aucune donnée")
     st.stop()
 
+interventions = build_interventions(flt)
+if interventions.empty:
+    st.warning("Aucune intervention selon les critères définis.")
+    st.stop()
+
 def pct(s):
     return (s / s.sum() * 100).round(1)
 
 c1, c2, c3, c4, c5, c6 = st.columns(6)
 
-c1.metric("Nombre d’interventions", len(flt))
+c1.metric("Nombre d’interventions", len(interventions))
 
-if {"Temps réalisé", "Temps théorique"}.issubset(flt.columns):
-    réalisé_moy = flt["Temps réalisé"].mean()
-    théorique_moy = flt["Temps théorique"].mean()
-    réalisé_max = flt["Temps réalisé"].max()
-    réalisé_min = flt["Temps réalisé"].min()
-    ecart_moyen = (flt["Temps réalisé"] - flt["Temps théorique"]).mean()
-    taux_depassement = (flt["Temps réalisé"] > flt["Temps théorique"]).mean() * 100
+if {"Temps réalisé", "Temps théorique"}.issubset(interventions.columns):
+    réalisé_moy = interventions["Temps réalisé"].mean()
+    théorique_moy = interventions["Temps théorique"].mean()
+    réalisé_max = interventions["Temps réalisé"].max()
+    réalisé_min = interventions["Temps réalisé"].min()
+    ecart_moyen = (interventions["Temps réalisé"] - interventions["Temps théorique"]).mean()
+    taux_depassement = (interventions["Temps réalisé"] > interventions["Temps théorique"]).mean() * 100
 
     c2.metric("Réalisé moyen (min)", f"{réalisé_moy:.1f}")
     c3.metric("Théorique moyen (min)", f"{théorique_moy:.1f}")
@@ -161,15 +166,15 @@ if {"Temps réalisé", "Temps théorique"}.issubset(flt.columns):
 
     st.caption(f"💡 {taux_depassement:.1f}% des interventions ont dépassé la durée théorique.")
 else:
-    réalisé_moy = flt["Temps réalisé"].mean()
-    réalisé_max = flt["Temps réalisé"].max()
-    réalisé_min = flt["Temps réalisé"].min()
+    réalisé_moy = interventions["Temps réalisé"].mean()
+    réalisé_max = interventions["Temps réalisé"].max()
+    réalisé_min = interventions["Temps réalisé"].min()
 
     c2.metric("Durée moyenne", f"{réalisé_moy:.1f} min")
     c3.metric("Durée max", f"{réalisé_max:.1f} min")
     c4.metric("Durée min", f"{réalisé_min:.1f} min")
 
-va = flt["Année"].value_counts().sort_index().reset_index()
+va = interventions["Année"].value_counts().sort_index().reset_index()
 va.columns = ["Année", "n"]
 f = px.bar(
     va,
@@ -183,27 +188,27 @@ f.update_traces(text=va["n"], textposition="outside", hovertemplate="Année %{x}
 st.plotly_chart(f, use_container_width=True)
 
 
-vm = flt.groupby(["Année", "Mois_nom"]).size().reset_index(name="n")
+vm = interventions.groupby(["Année", "Mois_nom"]).size().reset_index(name="n")
 st.plotly_chart(px.bar(vm, x="Mois_nom", y="n", color="Année", color_discrete_sequence=enedis_cols, barmode="group", title="Volume mensuel"), use_container_width=True)
 
-if "Prestation" in flt.columns:
-    st.plotly_chart(px.pie(flt, names="Prestation", color_discrete_sequence=enedis_cols, title="Répartition prestations"), use_container_width=True)
+if "Prestation" in interventions.columns:
+    st.plotly_chart(px.pie(interventions, names="Prestation", color_discrete_sequence=enedis_cols, title="Répartition prestations"), use_container_width=True)
 
-if {"Statut de l'intervention", "Etat de réalisation"}.issubset(flt.columns):
+if {"Statut de l'intervention", "Etat de réalisation"}.issubset(interventions.columns):
     a, b = st.columns(2)
-    a.plotly_chart(px.pie(flt, names="Statut de l'intervention", color_discrete_sequence=enedis_cols, title="Statut"), use_container_width=True)
-    b.plotly_chart(px.pie(flt, names="Etat de réalisation", color_discrete_sequence=enedis_cols, title="État de réalisation"), use_container_width=True)
+    a.plotly_chart(px.pie(interventions, names="Statut de l'intervention", color_discrete_sequence=enedis_cols, title="Statut"), use_container_width=True)
+    b.plotly_chart(px.pie(interventions, names="Etat de réalisation", color_discrete_sequence=enedis_cols, title="État de réalisation"), use_container_width=True)
 
-if "Libelle du BI" in flt.columns:
-    t = flt["Libelle du BI"].value_counts().nlargest(10).reset_index()
+if "Libelle du BI" in interventions.columns:
+    t = interventions["Libelle du BI"].value_counts().nlargest(10).reset_index()
     t.columns = ["lbl", "n"]
     t["pct"] = pct(t["n"])
     f = px.bar(t, x="lbl", y="n", text="pct", color="lbl", color_discrete_sequence=enedis_cols, title="Top 10 Libellé BI")
     f.update_traces(hovertemplate="%{x}<br>%{text}%")
     st.plotly_chart(f, use_container_width=True)
 
-if "Code et libelle Uo" in flt.columns:
-    u = flt["Code et libelle Uo"].value_counts().nlargest(10).reset_index()
+if "Code et libelle Uo" in interventions.columns:
+    u = interventions["Code et libelle Uo"].value_counts().nlargest(10).reset_index()
     u.columns = ["uo", "n"]
     u["pct"] = pct(u["n"])
     f = px.bar(u, x="uo", y="n", text="pct", color="uo", color_discrete_sequence=enedis_cols, title="Top 10 UO")
@@ -212,9 +217,10 @@ if "Code et libelle Uo" in flt.columns:
 
 
 
-if "PRM" in flt.columns:
-    flt["PRM_clean"] = flt["PRM"].dropna().apply(lambda x: str(x).split('.')[0])
-    top_prm = flt["PRM_clean"].value_counts().nlargest(10).reset_index()
+if "PRM" in interventions.columns:
+    interventions = interventions.copy()
+    interventions["PRM_clean"] = interventions["PRM"].dropna().apply(lambda x: str(x).split('.')[0])
+    top_prm = interventions["PRM_clean"].value_counts().nlargest(10).reset_index()
     top_prm.columns = ["PRM", "n"]
     top_prm["Rang"] = [f"{i+1}ᵉ" for i in range(len(top_prm))]
 
@@ -240,35 +246,36 @@ cols_order = [
 ]
 
 # Affichage du tableau des lignes concernées
-if "PRM_clean" in flt.columns:
+if "PRM_clean" in interventions.columns:
     top_10_prm = top_prm["PRM"].tolist()
-    top_prm_df = flt[flt["PRM_clean"].isin(top_10_prm)]
+    top_prm_df = interventions[interventions["PRM_clean"].isin(top_10_prm)]
 
     st.subheader("📋 Détails des interventions des 10 PRM les plus sollicités")
     st.dataframe(top_prm_df[[c for c in cols_order if c in top_prm_df.columns]])
 
 
 
-if "Origine" in flt.columns:
-    t = flt["Origine"].value_counts().reset_index()
+if "Origine" in interventions.columns:
+    t = interventions["Origine"].value_counts().reset_index()
     t.columns = ["Origine", "n"]
     t["pct"] = pct(t["n"])
     f = px.bar(t, x="Origine", y="n", text="pct", color="Origine", color_discrete_sequence=enedis_cols, title="Répartition par Origine")
     f.update_traces(hovertemplate="%{x}<br>%{text}%")
     st.plotly_chart(f, use_container_width=True)
 
-if "Date de programmation" in flt.columns:
+if "Date de programmation" in interventions.columns:
     try:
-        flt["Date de programmation"] = pd.to_datetime(flt["Date de programmation"], errors='coerce')
-        t = flt["Date de programmation"].dt.date.value_counts().sort_index().reset_index()
+        interventions = interventions.copy()
+        interventions["Date de programmation"] = pd.to_datetime(interventions["Date de programmation"], errors='coerce')
+        t = interventions["Date de programmation"].dt.date.value_counts().sort_index().reset_index()
         t.columns = ["Date", "n"]
         f = px.bar(t, x="Date", y="n", color_discrete_sequence=enedis_cols, title="Volume des programmations par jour")
         st.plotly_chart(f, use_container_width=True)
     except:
         pass
 
-if "Motif de non réalisation" in flt.columns:
-    t = flt["Motif de non réalisation"].dropna().value_counts().nlargest(10).reset_index()
+if "Motif de non réalisation" in interventions.columns:
+    t = interventions["Motif de non réalisation"].dropna().value_counts().nlargest(10).reset_index()
     t.columns = ["Motif", "n"]
     t["pct"] = pct(t["n"])
     f = px.bar(t, x="Motif", y="n", text="pct", color="Motif", color_discrete_sequence=enedis_cols, title="Top 10 Motifs de non réalisation")
@@ -278,14 +285,14 @@ if "Motif de non réalisation" in flt.columns:
 
 
 
-if {"Temps théorique", "Temps réalisé", "Prestation"}.issubset(flt.columns):
-    t = flt.groupby("Prestation")[["Temps théorique", "Temps réalisé"]].mean().reset_index()
+if {"Temps théorique", "Temps réalisé", "Prestation"}.issubset(interventions.columns):
+    t = interventions.groupby("Prestation")[["Temps théorique", "Temps réalisé"]].mean().reset_index()
     f = px.bar(t, x="Prestation", y=["Temps théorique", "Temps réalisé"], color_discrete_sequence=enedis_cols[:2], barmode="group", title="Temps théorique vs réalisé par prestation")
     st.plotly_chart(f, use_container_width=True)
 
 gj = get_geojson()
-if "Arr" in flt.columns and gj:
-    arr = flt["Arr"].value_counts().rename_axis("Arr").reset_index(name="n")
+if "Arr" in interventions.columns and gj:
+    arr = interventions["Arr"].value_counts().rename_axis("Arr").reset_index(name="n")
     arr["Arr"] = arr["Arr"].astype(int)
     arr["pct"] = pct(arr["n"])
     f = px.choropleth(
@@ -303,5 +310,5 @@ if "Arr" in flt.columns and gj:
     st.plotly_chart(f, use_container_width=True)
 
 cols_order = ["PRM", "Prestation", "Perimètre géographique", "Libelle du BI", "Commune", "Code et libelle Uo", "Origine", "Date de programmation", "Date de réalisation", "Statut de l'intervention", "Etat de réalisation", "Motif de non réalisation", "Temps théorique", "Temps réalisé", "Agent", "CDT", "Commentaire du technicien"]
-st.dataframe(flt[[c for c in cols_order if c in flt.columns]])
+st.dataframe(interventions[[c for c in cols_order if c in interventions.columns]])
 
