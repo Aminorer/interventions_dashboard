@@ -1,5 +1,5 @@
 import streamlit as st, pandas as pd, numpy as np, plotly.express as px
-from utils import get_geojson, build_interventions
+from app_utils import get_geojson, build_interventions
 
 
 def _params(*args):
