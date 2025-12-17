@@ -1,5 +1,5 @@
 import streamlit as st, pandas as pd, numpy as np, plotly.express as px, unicodedata, re
-from utils import get_logo_bytes, get_geojson, build_interventions
+from app_utils import get_logo_bytes, get_geojson, build_interventions
 
 st.set_page_config(page_title="Interventions Enedis", layout="wide", initial_sidebar_state="expanded")
 
